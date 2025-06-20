@@ -86,6 +86,11 @@ The repository contains two main scripts:
      ```bash
      python create_tile_mesh.py --sample 105
      ```
+   * To customize endpoint dot size:
+
+     ```bash
+     python create_tile_mesh.py --dot-radius 2.0
+     ```
 
 ## Configuration
 
@@ -95,8 +100,11 @@ The repository contains two main scripts:
   * `tile_thickness` (e.g. `5.0` mm)
   * `channel_depth` (e.g. `3.0` mm)
   * `path_radius` (e.g. `2.0` mm)
+  * `endpoint_dot_radius` (e.g. `1.5` mm) - radius of semicircle dots at endpoints
 
 Feel free to tweak these values to suit your printer and design aesthetic.
+
+> **Note:** The code automatically handles overlapping grooves by merging them before creating the 3D mesh, ensuring proper cuts even when paths cross or overlap.
 
 ## Next Steps
 

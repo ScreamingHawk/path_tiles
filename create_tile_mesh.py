@@ -15,7 +15,7 @@ import random
 import argparse
 import numpy as np
 import trimesh
-from shapely.geometry import LineString
+from shapely.geometry import LineString, Polygon
 from shapely.ops import unary_union
 from trimesh.creation import extrude_polygon
 from trimesh.boolean import difference
@@ -41,16 +41,22 @@ def create_tile_mesh(
     tile_thickness: float = 5.0,
     channel_depth: float = 3.0,
     path_radius: float = 2.0,
+    endpoint_dot_radius: float = None,
     bezier_steps: int = 64,
     triang_engine: str = None,
 ) -> trimesh.Trimesh:
-    """Build a Path Tiles tile with curved grooves embedded into the surface."""
+    """Build a Path Tiles tile with curved grooves and endpoint circle cuts embedded into the surface.
+    endpoint_dot_radius: if None, defaults to 3x path_radius.
+    """
     engine = triang_engine or DEFAULT_ENGINE
     if engine is None:
         raise ImportError(
             "No triangulation engine found. Install mapbox-earcut or triangle via:\n"
             "  pip install mapbox-earcut triangle"
         )
+
+    if endpoint_dot_radius is None:
+        endpoint_dot_radius = 3 * path_radius
 
     base = trimesh.creation.box(
         extents=[tile_size, tile_size, tile_thickness],
@@ -110,15 +116,68 @@ def create_tile_mesh(
     for groove_mesh in groove_meshes:
         groove_mesh.apply_translation([0, 0, tile_thickness - channel_depth])
 
+    # Create flat circular cuts at each endpoint
+    endpoint_dots = []
+    for i in range(8):
+        x, y = endpoints2d[i]
+
+        # Create a full circle centered at the endpoint
+        angles = np.linspace(0, 2 * np.pi, 64)
+        circle_points = np.column_stack(
+            [
+                x + endpoint_dot_radius * np.cos(angles),
+                y + endpoint_dot_radius * np.sin(angles),
+            ]
+        )
+
+        # Create polygon from circle points
+        circle = Polygon(circle_points)
+
+        # Create a tile boundary polygon to clip the circle
+        tile_boundary = Polygon(
+            [(0, 0), (tile_size, 0), (tile_size, tile_size), (0, tile_size)]
+        )
+
+        # Clip the circle to stay within the tile
+        clipped_circle = circle.intersection(tile_boundary)
+
+        # Only add if the clipped circle has area
+        if clipped_circle.area > 0:
+            # Handle both single polygon and multipolygon cases
+            if clipped_circle.geom_type == "Polygon":
+                dot_mesh = extrude_polygon(
+                    clipped_circle, height=channel_depth, engine=engine
+                )
+                dot_mesh.apply_translation([0, 0, tile_thickness - channel_depth])
+                endpoint_dots.append(dot_mesh)
+            elif clipped_circle.geom_type == "MultiPolygon":
+                for polygon in clipped_circle.geoms:
+                    dot_mesh = extrude_polygon(
+                        polygon, height=channel_depth, engine=engine
+                    )
+                    dot_mesh.apply_translation([0, 0, tile_thickness - channel_depth])
+                    endpoint_dots.append(dot_mesh)
+
     # Combine all groove meshes
+    channel_mesh = None
     if groove_meshes:
         channel_mesh = trimesh.util.concatenate(groove_meshes)
-        # Use a more robust boolean operation
+    dot_mesh = None
+    if endpoint_dots:
+        dot_mesh = trimesh.util.concatenate(endpoint_dots)
+
+    # Subtract both grooves and endpoint dots from the base
+    cutters = []
+    if channel_mesh is not None:
+        cutters.append(channel_mesh)
+    if dot_mesh is not None:
+        cutters.append(dot_mesh)
+
+    if cutters:
         try:
-            carved = difference([base, channel_mesh], engine="manifold")
+            carved = difference([base] + cutters, engine="manifold")
         except Exception:
-            # Fallback to scad engine if manifold fails
-            carved = difference([base, channel_mesh], engine="scad")
+            carved = difference([base] + cutters, engine="scad")
     else:
         carved = base
 
@@ -130,13 +189,16 @@ def export_tiles(
     output_dir: str = "output",
     sample_size: int = None,
     triang_engine: str = None,
+    endpoint_dot_radius: float = None,
 ):
     """Export Path Tiles meshes to STL."""
     os.makedirs(output_dir, exist_ok=True)
     pool = random.sample(matchings, sample_size) if sample_size else matchings
 
     for idx, m in enumerate(pool, start=1):
-        mesh = create_tile_mesh(m, triang_engine=triang_engine)
+        mesh = create_tile_mesh(
+            m, triang_engine=triang_engine, endpoint_dot_radius=endpoint_dot_radius
+        )
         path = os.path.join(output_dir, f"tile_{idx:03d}.stl")
         mesh.export(path)
         print(f"→ Exported {path}")
@@ -160,6 +222,12 @@ def main():
     parser.add_argument(
         "--output", default="output", help="Output directory for STL files."
     )
+    parser.add_argument(
+        "--dot-radius",
+        type=float,
+        default=None,
+        help="Radius of endpoint dots in mm (default: None, which is 3x path_radius).",
+    )
     args = parser.parse_args()
 
     engine = args.engine or DEFAULT_ENGINE
@@ -175,6 +243,7 @@ def main():
         output_dir=args.output,
         sample_size=args.sample,
         triang_engine=engine,
+        endpoint_dot_radius=args.dot_radius,
     )
 
 
