@@ -112,14 +112,6 @@ Check out the sample files in the `sample/` directory to see what the generated 
 
 Feel free to tweak these values to suit your printer and design aesthetic.
 
-> **Note:** The code automatically handles overlapping grooves by merging them before creating the 3D mesh, ensuring proper cuts even when paths cross or overlap.
-
-## Next Steps
-
-* Replace straight cylinders with curved splines or Bezier patches for smoother swirling tracks.
-* Add chamfers or fillets to base edges for a refined look.
-* Integrate with a CAD API (e.g., FreeCAD) for more advanced modeling.
-
 ## License
 
 This project is licensed under the MIT License. Feel free to adapt and extend it for personal or commercial use.
