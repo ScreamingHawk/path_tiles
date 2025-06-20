@@ -1,0 +1,56 @@
+name: Test Tile Generation
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test-tiles:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run tile generation script
+        run: |
+          python create_tile_mesh.py --sample 36
+
+      - name: Verify 36 tiles were generated
+        run: |
+          # Count the number of .stl files in the output directory
+          tile_count=$(find output -name "*.stl" | wc -l)
+          echo "Generated $tile_count tiles"
+
+          # Check that exactly 36 tiles were created
+          if [ "$tile_count" -eq 36 ]; then
+            echo "✅ Success: Exactly 36 tiles were generated"
+          else
+            echo "❌ Error: Expected 36 tiles, but found $tile_count"
+            exit 1
+          fi
+
+      - name: List generated files
+        run: |
+          echo "Generated files:"
+          ls -la output/
+
+      - name: Upload output artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: generated-tiles
+          path: output/
+          retention-days: 30
