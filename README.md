@@ -64,6 +64,14 @@ The repository contains two main scripts:
 * `generate_path_tiles.py`: Enumerates all perfect matchings on 8 endpoints and prints a sample of 36 patterns.
 * `create_tile_mesh.py`: Uses `trimesh` to create 3D meshes for each tile and exports STL files to an `output/` folder.
 
+## Sample Output
+
+Check out the sample files in the `sample/` directory to see what the generated tiles look like:
+
+![Sample Tile Pattern](sample/sample.png)
+
+* `sample/sample.stl` - A 3D model file ready for 3D printing
+
 ## Usage
 
 1. **Generate matchings and preview a sample**
