@@ -2,6 +2,8 @@
 
 This project generates Path Tiles board game tiles by enumerating all perfect matchings of swirling tracks on a square tile and exporting 3D models (STL) for 3D printing.
 
+> **Compatible with Tsuro®. Not affiliated with or endorsed by Calliope Games.**
+
 ## Prerequisites
 
 * Python 3.8+ installed
