@@ -9,12 +9,14 @@ Usage:
 python create_tile_mesh.py [--engine earcut|triangle] [--sample 36]
 ```
 """
+
 import os
 import random
 import argparse
 import numpy as np
 import trimesh
 from shapely.geometry import LineString
+from shapely.ops import unary_union
 from trimesh.creation import extrude_polygon
 from trimesh.boolean import difference
 
@@ -22,10 +24,12 @@ from generate_path_tiles import generate_matchings
 
 try:
     import mapbox_earcut
+
     DEFAULT_ENGINE = "earcut"
 except ImportError:
     try:
         import triangle
+
         DEFAULT_ENGINE = "triangle"
     except ImportError:
         DEFAULT_ENGINE = None
@@ -38,7 +42,7 @@ def create_tile_mesh(
     channel_depth: float = 3.0,
     path_radius: float = 2.0,
     bezier_steps: int = 64,
-    triang_engine: str = None
+    triang_engine: str = None,
 ) -> trimesh.Trimesh:
     """Build a Path Tiles tile with curved grooves embedded into the surface."""
     engine = triang_engine or DEFAULT_ENGINE
@@ -50,41 +54,74 @@ def create_tile_mesh(
 
     base = trimesh.creation.box(
         extents=[tile_size, tile_size, tile_thickness],
-        transform=trimesh.transformations.translation_matrix([
-            tile_size / 2, tile_size / 2, tile_thickness / 2
-        ])
+        transform=trimesh.transformations.translation_matrix(
+            [tile_size / 2, tile_size / 2, tile_thickness / 2]
+        ),
     )
 
     q = tile_size / 4.0
     endpoints2d = [
-        (  q,        tile_size),
-        (3*q,        tile_size),
-        ( tile_size, 3*q       ),
-        ( tile_size,   q       ),
-        (3*q,            0     ),
-        (  q,            0     ),
-        (   0,           q     ),
-        (   0,         3*q     ),
+        (q, tile_size),
+        (3 * q, tile_size),
+        (tile_size, 3 * q),
+        (tile_size, q),
+        (3 * q, 0),
+        (q, 0),
+        (0, q),
+        (0, 3 * q),
     ]
     center = np.array([tile_size / 2, tile_size / 2])
 
-    grooves = []
-    for (i, j) in matching:
+    # Create individual groove polygons first
+    groove_polygons = []
+    for i, j in matching:
         p0 = np.array(endpoints2d[i])
         p1 = np.array(endpoints2d[j])
         ts = np.linspace(0, 1, bezier_steps)
-        curve = np.vstack([
-            (1 - t)**2 * p0 + 2 * (1 - t) * t * center + t**2 * p1
-            for t in ts
-        ])
+        curve = np.vstack(
+            [(1 - t) ** 2 * p0 + 2 * (1 - t) * t * center + t**2 * p1 for t in ts]
+        )
         line = LineString(curve)
         tube = line.buffer(path_radius, cap_style=1, join_style=1)
-        groove = extrude_polygon(tube, height=channel_depth, engine=engine)
-        groove.apply_translation([0, 0, tile_thickness - channel_depth])
-        grooves.append(groove)
+        groove_polygons.append(tube)
 
-    channel_mesh = trimesh.util.concatenate(grooves)
-    carved = difference([base, channel_mesh], engine="manifold")
+    # Merge overlapping groove polygons using shapely union
+    if groove_polygons:
+        merged_grooves = unary_union(groove_polygons)
+
+        # Handle both single polygon and multipolygon cases
+        if merged_grooves.geom_type == "Polygon":
+            groove_meshes = [
+                extrude_polygon(merged_grooves, height=channel_depth, engine=engine)
+            ]
+        elif merged_grooves.geom_type == "MultiPolygon":
+            groove_meshes = []
+            for polygon in merged_grooves.geoms:
+                groove_mesh = extrude_polygon(
+                    polygon, height=channel_depth, engine=engine
+                )
+                groove_meshes.append(groove_mesh)
+        else:
+            groove_meshes = []
+    else:
+        groove_meshes = []
+
+    # Apply translation to all groove meshes
+    for groove_mesh in groove_meshes:
+        groove_mesh.apply_translation([0, 0, tile_thickness - channel_depth])
+
+    # Combine all groove meshes
+    if groove_meshes:
+        channel_mesh = trimesh.util.concatenate(groove_meshes)
+        # Use a more robust boolean operation
+        try:
+            carved = difference([base, channel_mesh], engine="manifold")
+        except Exception:
+            # Fallback to scad engine if manifold fails
+            carved = difference([base, channel_mesh], engine="scad")
+    else:
+        carved = base
+
     return carved
 
 
@@ -92,7 +129,7 @@ def export_tiles(
     matchings,
     output_dir: str = "output",
     sample_size: int = None,
-    triang_engine: str = None
+    triang_engine: str = None,
 ):
     """Export Path Tiles meshes to STL."""
     os.makedirs(output_dir, exist_ok=True)
@@ -110,16 +147,18 @@ def main():
         description="Export Path Tiles as STL with curved grooves."
     )
     parser.add_argument(
-        "--engine", choices=["earcut", "triangle"],
-        help="Triangulation engine ('earcut' for mapbox-earcut, 'triangle' for triangle)."
+        "--engine",
+        choices=["earcut", "triangle"],
+        help="Triangulation engine ('earcut' for mapbox-earcut, 'triangle' for triangle).",
     )
     parser.add_argument(
-        "--sample", type=int, default=36,
-        help="Number of random tiles to export (default: 36)."
+        "--sample",
+        type=int,
+        default=36,
+        help="Number of random tiles to export (default: 36).",
     )
     parser.add_argument(
-        "--output", default="output",
-        help="Output directory for STL files."
+        "--output", default="output", help="Output directory for STL files."
     )
     args = parser.parse_args()
 
@@ -135,8 +174,9 @@ def main():
         matchings=all_matchings,
         output_dir=args.output,
         sample_size=args.sample,
-        triang_engine=engine
+        triang_engine=engine,
     )
+
 
 if __name__ == "__main__":
     main()
