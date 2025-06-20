@@ -1,0 +1,13 @@
+# Environments
+.env
+.venv
+env/
+venv/
+env.bak/
+venv.bak/
+
+# Output
+output/
+
+# Cache
+__pycache__/
