@@ -51,6 +51,8 @@ python create_tile_mesh.py --help
 - `--channel-depth FLOAT`: Depth of channels in mm (default: 3.0)
 - `--path-radius FLOAT`: Radius of path channels in mm (default: 2.0)
 - `--dot-radius FLOAT`: Radius of endpoint dots in mm (default: 6.0)
+- `--dot-depth FLOAT`: Depth of endpoint dots in mm (default: same as channel-depth)
+- `--dot-inset FLOAT`: Distance of dot centers from tile edge in mm (default: 0.0)
 - `--output DIR`: Output directory (default: "output")
 
 ### Examples
@@ -62,8 +64,17 @@ python create_tile_mesh.py --tile-size 80 --tile-thickness 4
 # Thicker tiles with deeper channels
 python create_tile_mesh.py --tile-thickness 8 --channel-depth 5
 
+# Move dot centers inward from the edge
+python create_tile_mesh.py --dot-inset 5
+
+# Custom dot depth (deeper than channels)
+python create_tile_mesh.py --dot-depth 3 --channel-depth 2
+
 # Export to custom directory
 python create_tile_mesh.py --output my_tiles
+
+# Personally my ideal settings are:
+python create_tile_mesh.py --tile-size 60 --dot-radius 6 --dot-inset 2 --channel-depth 2 --dot-inset 3
 ```
 
 ## Sample Output

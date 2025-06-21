@@ -42,6 +42,8 @@ def create_tile_mesh(
     channel_depth: float = 3.0,
     path_radius: float = 2.0,
     endpoint_dot_radius: float = 6.0,
+    dot_inset: float = 0.0,
+    dot_depth: float = None,
     bezier_steps: int = 64,
     triang_engine: str = None,
 ) -> trimesh.Trimesh:
@@ -61,15 +63,16 @@ def create_tile_mesh(
     )
 
     q = tile_size / 4.0
+    # Apply inset to move dot centers inward from the edge
     endpoints2d = [
-        (q, tile_size),
-        (3 * q, tile_size),
-        (tile_size, 3 * q),
-        (tile_size, q),
-        (3 * q, 0),
-        (q, 0),
-        (0, q),
-        (0, 3 * q),
+        (q, tile_size - dot_inset),  # Top edge
+        (3 * q, tile_size - dot_inset),  # Top edge
+        (tile_size - dot_inset, 3 * q),  # Right edge
+        (tile_size - dot_inset, q),  # Right edge
+        (3 * q, dot_inset),  # Bottom edge
+        (q, dot_inset),  # Bottom edge
+        (dot_inset, q),  # Left edge
+        (dot_inset, 3 * q),  # Left edge
     ]
     center = np.array([tile_size / 2, tile_size / 2])
 
@@ -111,6 +114,9 @@ def create_tile_mesh(
     for groove_mesh in groove_meshes:
         groove_mesh.apply_translation([0, 0, tile_thickness - channel_depth])
 
+    # Use dot_depth if specified, otherwise use channel_depth
+    actual_dot_depth = dot_depth if dot_depth is not None else channel_depth
+
     # Create endpoint dots as cylinders, clipped to the tile boundary
     endpoint_dots = []
     for i in range(8):
@@ -118,15 +124,19 @@ def create_tile_mesh(
         try:
             # Create a simple cylinder
             cylinder = trimesh.creation.cylinder(
-                radius=endpoint_dot_radius, height=channel_depth, sections=32
+                radius=endpoint_dot_radius, height=actual_dot_depth, sections=32
             )
             # Position the cylinder so its top is flush with the tile top
-            cylinder.apply_translation([x, y, tile_thickness - channel_depth / 2])
+            cylinder.apply_translation([x, y, tile_thickness - actual_dot_depth / 2])
             # Clip to tile boundary by creating a box and intersecting
             tile_box = trimesh.creation.box(
-                extents=[tile_size, tile_size, channel_depth],
+                extents=[tile_size, tile_size, actual_dot_depth],
                 transform=trimesh.transformations.translation_matrix(
-                    [tile_size / 2, tile_size / 2, tile_thickness - channel_depth / 2]
+                    [
+                        tile_size / 2,
+                        tile_size / 2,
+                        tile_thickness - actual_dot_depth / 2,
+                    ]
                 ),
             )
             # Intersect cylinder with tile box
@@ -204,6 +214,8 @@ def export_tiles(
     channel_depth: float = 3.0,
     path_radius: float = 2.0,
     endpoint_dot_radius: float = 6.0,
+    dot_inset: float = 0.0,
+    dot_depth: float = None,
 ):
     """Export Path Tiles meshes to STL."""
     os.makedirs(output_dir, exist_ok=True)
@@ -217,6 +229,8 @@ def export_tiles(
             channel_depth=channel_depth,
             path_radius=path_radius,
             endpoint_dot_radius=endpoint_dot_radius,
+            dot_inset=dot_inset,
+            dot_depth=dot_depth,
             triang_engine=triang_engine,
         )
         path = os.path.join(output_dir, f"tile_{idx:03d}.stl")
@@ -272,6 +286,17 @@ def main():
         default=6.0,
         help="Radius of endpoint dots in mm (default: 6.0).",
     )
+    parser.add_argument(
+        "--dot-inset",
+        type=float,
+        default=0.0,
+        help="Distance of dot centers from tile edge in mm (default: 0.0).",
+    )
+    parser.add_argument(
+        "--dot-depth",
+        type=float,
+        help="Depth of endpoint dots in mm (default: same as channel-depth).",
+    )
     args = parser.parse_args()
 
     engine = args.engine or DEFAULT_ENGINE
@@ -292,6 +317,8 @@ def main():
         channel_depth=args.channel_depth,
         path_radius=args.path_radius,
         endpoint_dot_radius=args.dot_radius,
+        dot_inset=args.dot_inset,
+        dot_depth=args.dot_depth,
     )
 
 
