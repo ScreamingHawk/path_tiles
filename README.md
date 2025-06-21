@@ -102,17 +102,55 @@ Check out the sample files in the `sample/` directory to see what the generated 
      python create_tile_mesh.py --dot-radius 2.0
      ```
 
+## Command Line Options
+
+To see all available options:
+
+```bash
+python create_tile_mesh.py --help
+```
+
+### Available Arguments
+
+- `--engine {earcut,triangle}`: Triangulation engine ('earcut' for mapbox-earcut, 'triangle' for triangle)
+- `--sample N`: Number of random tiles to export (default: 36)
+- `--output DIR`: Output directory for STL files (default: "output")
+- `--tile-size FLOAT`: Tile size in mm (default: 100.0)
+- `--tile-thickness FLOAT`: Tile thickness in mm (default: 5.0)
+- `--channel-depth FLOAT`: Depth of the curved channels in mm (default: 3.0)
+- `--path-radius FLOAT`: Radius of the path channels in mm (default: 2.0)
+- `--dot-radius FLOAT`: Radius of endpoint dots in mm (default: None, which is 3x path_radius)
+
+### Example Commands
+
+```bash
+# Export 10 tiles with custom dimensions
+python create_tile_mesh.py --sample 10 --tile-size 80 --tile-thickness 4
+
+# Create thicker tiles with deeper channels
+python create_tile_mesh.py --tile-thickness 8 --channel-depth 5 --path-radius 2.5
+
+# Export all tiles with large endpoint dots
+python create_tile_mesh.py --sample 105 --dot-radius 8
+
+# Use triangle engine with custom output directory
+python create_tile_mesh.py --engine triangle --output my_tiles
+```
+
 ## Configuration
 
-* **Tile dimensions** and **path parameters** live in the `create_tile_mesh` function:
+All tile dimensions and path parameters can be customized via command line arguments:
 
-  * `tile_size` (e.g. `100.0` mm)
-  * `tile_thickness` (e.g. `5.0` mm)
-  * `channel_depth` (e.g. `3.0` mm)
-  * `path_radius` (e.g. `2.0` mm)
-  * `endpoint_dot_radius` (e.g. `1.5` mm) - radius of semicircle dots at endpoints
+* **Tile dimensions**:
+  * `--tile-size` (e.g. `100.0` mm)
+  * `--tile-thickness` (e.g. `5.0` mm)
 
-Feel free to tweak these values to suit your printer and design aesthetic.
+* **Path parameters**:
+  * `--channel-depth` (e.g. `3.0` mm)
+  * `--path-radius` (e.g. `2.0` mm)
+  * `--dot-radius` (e.g. `6.0` mm) - radius of semicircle dots at endpoints
+
+Feel free to tweak these values to suit your printer and design aesthetic. Use `python create_tile_mesh.py --help` to see all available options.
 
 ## License
 

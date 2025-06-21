@@ -41,12 +41,11 @@ def create_tile_mesh(
     tile_thickness: float = 5.0,
     channel_depth: float = 3.0,
     path_radius: float = 2.0,
-    endpoint_dot_radius: float = None,
+    endpoint_dot_radius: float = 6.0,
     bezier_steps: int = 64,
     triang_engine: str = None,
 ) -> trimesh.Trimesh:
     """Build a Path Tiles tile with curved grooves and endpoint circle cuts embedded into the surface.
-    endpoint_dot_radius: if None, defaults to 3x path_radius.
     """
     engine = triang_engine or DEFAULT_ENGINE
     if engine is None:
@@ -54,9 +53,6 @@ def create_tile_mesh(
             "No triangulation engine found. Install mapbox-earcut or triangle via:\n"
             "  pip install mapbox-earcut triangle"
         )
-
-    if endpoint_dot_radius is None:
-        endpoint_dot_radius = 3 * path_radius
 
     base = trimesh.creation.box(
         extents=[tile_size, tile_size, tile_thickness],
@@ -189,7 +185,11 @@ def export_tiles(
     output_dir: str = "output",
     sample_size: int = None,
     triang_engine: str = None,
-    endpoint_dot_radius: float = None,
+    tile_size: float = 100.0,
+    tile_thickness: float = 5.0,
+    channel_depth: float = 3.0,
+    path_radius: float = 2.0,
+    endpoint_dot_radius: float = 6.0,
 ):
     """Export Path Tiles meshes to STL."""
     os.makedirs(output_dir, exist_ok=True)
@@ -197,7 +197,13 @@ def export_tiles(
 
     for idx, m in enumerate(pool, start=1):
         mesh = create_tile_mesh(
-            m, triang_engine=triang_engine, endpoint_dot_radius=endpoint_dot_radius
+            m,
+            tile_size=tile_size,
+            tile_thickness=tile_thickness,
+            channel_depth=channel_depth,
+            path_radius=path_radius,
+            endpoint_dot_radius=endpoint_dot_radius,
+            triang_engine=triang_engine,
         )
         path = os.path.join(output_dir, f"tile_{idx:03d}.stl")
         mesh.export(path)
@@ -223,10 +229,34 @@ def main():
         "--output", default="output", help="Output directory for STL files."
     )
     parser.add_argument(
+        "--tile-size",
+        type=float,
+        default=100.0,
+        help="Tile size in mm (default: 100.0).",
+    )
+    parser.add_argument(
+        "--tile-thickness",
+        type=float,
+        default=5.0,
+        help="Tile thickness in mm (default: 5.0).",
+    )
+    parser.add_argument(
+        "--channel-depth",
+        type=float,
+        default=3.0,
+        help="Depth of the curved channels in mm (default: 3.0).",
+    )
+    parser.add_argument(
+        "--path-radius",
+        type=float,
+        default=2.0,
+        help="Radius of the path channels in mm (default: 2.0).",
+    )
+    parser.add_argument(
         "--dot-radius",
         type=float,
-        default=None,
-        help="Radius of endpoint dots in mm (default: None, which is 3x path_radius).",
+        default=6.0,
+        help="Radius of endpoint dots in mm (default: 6.0).",
     )
     args = parser.parse_args()
 
@@ -243,6 +273,10 @@ def main():
         output_dir=args.output,
         sample_size=args.sample,
         triang_engine=engine,
+        tile_size=args.tile_size,
+        tile_thickness=args.tile_thickness,
+        channel_depth=args.channel_depth,
+        path_radius=args.path_radius,
         endpoint_dot_radius=args.dot_radius,
     )
 
