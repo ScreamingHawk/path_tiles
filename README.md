@@ -4,154 +4,75 @@ This project generates Path Tiles board game tiles by enumerating all perfect ma
 
 > **Compatible with Tsuro®. Not affiliated with or endorsed by Calliope Games.**
 
-## Prerequisites
+![Sample Tile Pattern](sample/sample.png)
 
-* Python 3.8+ installed
-* `pip` package manager
+## Setup
 
-## Virtual Environment Setup
-
-1. Create a virtual environment:
+1. Create and activate a virtual environment:
 
    ```bash
    python3 -m venv venv
+   source venv/bin/activate  # Linux/macOS
+   # or
+   .\venv\Scripts\Activate.ps1  # Windows PowerShell
    ```
-2. Activate the environment:
 
-   * On Linux/macOS:
-
-     ```bash
-     source venv/bin/activate
-     ```
-   * On Windows (PowerShell):
-
-     ```powershell
-     .\venv\Scripts\Activate.ps1
-     ```
-   * On Windows (cmd.exe):
-
-     ```cmd
-     venv\Scripts\activate.bat
-     ```
-
-## Dependency Management
-
-A `requirements.txt` file in the repo pins all Python dependencies for reproducibility.
-
-* To **freeze** your current environment's packages:
-
-  ```bash
-  pip install --upgrade pip
-  pip install numpy trimesh shapely
-  pip freeze > requirements.txt
-  ```
-* To **install** the exact versions listed:
-
-  ```bash
-  pip install -r requirements.txt
-  ```
-
-> **Tip:** Whenever you add or update packages, rerun:
->
-> ```bash
-> pip freeze > requirements.txt
-> ```
->
-> to keep your dependencies locked.
-
-## Scripts
-
-The repository contains two main scripts:
-
-* `generate_path_tiles.py`: Enumerates all perfect matchings on 8 endpoints and prints a sample of 36 patterns.
-* `create_tile_mesh.py`: Uses `trimesh` to create 3D meshes for each tile and exports STL files to an `output/` folder.
-
-## Sample Output
-
-Check out the sample files in the `sample/` directory to see what the generated tiles look like:
-
-![Sample Tile Pattern](sample/sample.png)
-
-* `sample/sample.stl` - A 3D model file ready for 3D printing
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
 ## Usage
 
-1. **Generate matchings and preview a sample**
+Generate all 105 unique tile patterns and export a sample as STL files:
 
-   ```bash
-   python generate_path_tiles.py
-   ```
+```bash
+# Generate matchings preview
+python generate_path_tiles.py
 
-   * Outputs the total number of matchings (`105`) and prints a random sample of `36` unique swirl patterns.
+# Export 36 random tiles (default)
+python create_tile_mesh.py
 
-2. **Export STL files**
-
-   ```bash
-   python create_tile_mesh.py
-   ```
-
-   * Creates an `output/` directory and writes files named `tile_001.stl`, `tile_002.stl`, … up to the default sample of `36`.
-   * To export **all** `105` tiles, use:
-
-     ```bash
-     python create_tile_mesh.py --sample 105
-     ```
-   * To customize endpoint dot size:
-
-     ```bash
-     python create_tile_mesh.py --dot-radius 2.0
-     ```
+# Export all 105 tiles
+python create_tile_mesh.py --sample 105
+```
 
 ## Command Line Options
-
-To see all available options:
 
 ```bash
 python create_tile_mesh.py --help
 ```
 
-### Available Arguments
+### Key Arguments
 
-- `--engine {earcut,triangle}`: Triangulation engine ('earcut' for mapbox-earcut, 'triangle' for triangle)
-- `--sample N`: Number of random tiles to export (default: 36)
-- `--output DIR`: Output directory for STL files (default: "output")
+- `--sample N`: Number of tiles to export (default: 36)
 - `--tile-size FLOAT`: Tile size in mm (default: 100.0)
 - `--tile-thickness FLOAT`: Tile thickness in mm (default: 5.0)
-- `--channel-depth FLOAT`: Depth of the curved channels in mm (default: 3.0)
-- `--path-radius FLOAT`: Radius of the path channels in mm (default: 2.0)
-- `--dot-radius FLOAT`: Radius of endpoint dots in mm (default: None, which is 3x path_radius)
+- `--channel-depth FLOAT`: Depth of channels in mm (default: 3.0)
+- `--path-radius FLOAT`: Radius of path channels in mm (default: 2.0)
+- `--dot-radius FLOAT`: Radius of endpoint dots in mm (default: 6.0)
+- `--output DIR`: Output directory (default: "output")
 
-### Example Commands
+### Examples
 
 ```bash
-# Export 10 tiles with custom dimensions
-python create_tile_mesh.py --sample 10 --tile-size 80 --tile-thickness 4
+# Custom tile dimensions
+python create_tile_mesh.py --tile-size 80 --tile-thickness 4
 
-# Create thicker tiles with deeper channels
-python create_tile_mesh.py --tile-thickness 8 --channel-depth 5 --path-radius 2.5
+# Thicker tiles with deeper channels
+python create_tile_mesh.py --tile-thickness 8 --channel-depth 5
 
-# Export all tiles with large endpoint dots
-python create_tile_mesh.py --sample 105 --dot-radius 8
-
-# Use triangle engine with custom output directory
-python create_tile_mesh.py --engine triangle --output my_tiles
+# Export to custom directory
+python create_tile_mesh.py --output my_tiles
 ```
 
-## Configuration
+## Sample Output
 
-All tile dimensions and path parameters can be customized via command line arguments:
+Check the `sample/` directory for example files:
 
-* **Tile dimensions**:
-  * `--tile-size` (e.g. `100.0` mm)
-  * `--tile-thickness` (e.g. `5.0` mm)
-
-* **Path parameters**:
-  * `--channel-depth` (e.g. `3.0` mm)
-  * `--path-radius` (e.g. `2.0` mm)
-  * `--dot-radius` (e.g. `6.0` mm) - radius of semicircle dots at endpoints
-
-Feel free to tweak these values to suit your printer and design aesthetic. Use `python create_tile_mesh.py --help` to see all available options.
+- `sample/sample.png` - Tile pattern preview
+- `sample/sample.stl` - 3D model ready for printing
 
 ## License
 
-This project is licensed under the MIT License. Feel free to adapt and extend it for personal or commercial use.
+MIT License - feel free to adapt for personal or commercial use.
