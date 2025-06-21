@@ -111,47 +111,48 @@ def create_tile_mesh(
     for groove_mesh in groove_meshes:
         groove_mesh.apply_translation([0, 0, tile_thickness - channel_depth])
 
-    # Create flat circular cuts at each endpoint
+    # Create endpoint dots as cylinders, clipped to the tile boundary
     endpoint_dots = []
     for i in range(8):
         x, y = endpoints2d[i]
-
-        # Create a full circle centered at the endpoint
-        angles = np.linspace(0, 2 * np.pi, 64)
-        circle_points = np.column_stack(
-            [
-                x + endpoint_dot_radius * np.cos(angles),
-                y + endpoint_dot_radius * np.sin(angles),
-            ]
-        )
-
-        # Create polygon from circle points
-        circle = Polygon(circle_points)
-
-        # Create a tile boundary polygon to clip the circle
-        tile_boundary = Polygon(
-            [(0, 0), (tile_size, 0), (tile_size, tile_size), (0, tile_size)]
-        )
-
-        # Clip the circle to stay within the tile
-        clipped_circle = circle.intersection(tile_boundary)
-
-        # Only add if the clipped circle has area
-        if clipped_circle.area > 0:
-            # Handle both single polygon and multipolygon cases
-            if clipped_circle.geom_type == "Polygon":
-                dot_mesh = extrude_polygon(
-                    clipped_circle, height=channel_depth, engine=engine
+        try:
+            # Create a simple cylinder
+            cylinder = trimesh.creation.cylinder(
+                radius=endpoint_dot_radius, height=channel_depth, sections=32
+            )
+            # Position the cylinder so its top is flush with the tile top
+            cylinder.apply_translation([x, y, tile_thickness - channel_depth / 2])
+            # Clip to tile boundary by creating a box and intersecting
+            tile_box = trimesh.creation.box(
+                extents=[tile_size, tile_size, channel_depth],
+                transform=trimesh.transformations.translation_matrix(
+                    [tile_size / 2, tile_size / 2, tile_thickness - channel_depth / 2]
+                ),
+            )
+            # Intersect cylinder with tile box
+            try:
+                clipped_cylinder = trimesh.boolean.intersection(
+                    [cylinder, tile_box], engine="manifold"
                 )
-                dot_mesh.apply_translation([0, 0, tile_thickness - channel_depth])
-                endpoint_dots.append(dot_mesh)
-            elif clipped_circle.geom_type == "MultiPolygon":
-                for polygon in clipped_circle.geoms:
-                    dot_mesh = extrude_polygon(
-                        polygon, height=channel_depth, engine=engine
+                if clipped_cylinder is not None and clipped_cylinder.volume > 0:
+                    endpoint_dots.append(clipped_cylinder)
+                else:
+                    print(
+                        f"Warning: Invalid clipped cylinder at endpoint {i}, skipping"
                     )
-                    dot_mesh.apply_translation([0, 0, tile_thickness - channel_depth])
-                    endpoint_dots.append(dot_mesh)
+            except Exception as e:
+                print(f"Warning: Boolean intersection failed at endpoint {i}: {e}")
+                # Fallback: use original cylinder if intersection fails
+                if cylinder.volume > 0:
+                    endpoint_dots.append(cylinder)
+        except Exception as e:
+            print(f"Warning: Failed to create cylinder dot at endpoint {i}: {e}")
+
+    # After all endpoint dot creation logic
+    if len(endpoint_dots) < 8:
+        raise RuntimeError(
+            f"Failed to create all endpoint dots! Only {len(endpoint_dots)} were created. Check your dot radius and tile size."
+        )
 
     # Combine all groove meshes
     channel_mesh = None
@@ -161,18 +162,32 @@ def create_tile_mesh(
     if endpoint_dots:
         dot_mesh = trimesh.util.concatenate(endpoint_dots)
 
+    # Validate meshes before boolean operations
+    def is_valid_mesh(mesh):
+        """Check if mesh is valid for boolean operations."""
+        if mesh is None:
+            return False
+        # Check if mesh has volume and is watertight
+        return mesh.volume > 0 and mesh.is_watertight and mesh.is_winding_consistent
+
     # Subtract both grooves and endpoint dots from the base
     cutters = []
-    if channel_mesh is not None:
+    if channel_mesh is not None and is_valid_mesh(channel_mesh):
         cutters.append(channel_mesh)
-    if dot_mesh is not None:
+    if dot_mesh is not None and is_valid_mesh(dot_mesh):
         cutters.append(dot_mesh)
 
     if cutters:
         try:
             carved = difference([base] + cutters, engine="manifold")
-        except Exception:
-            carved = difference([base] + cutters, engine="scad")
+        except Exception as e:
+            print(f"Warning: Manifold boolean failed: {e}")
+            try:
+                carved = difference([base] + cutters, engine="scad")
+            except Exception as e2:
+                raise RuntimeError(
+                    f"Failed to create tile mesh: both manifold and scad boolean operations failed. Manifold error: {e}, SCAD error: {e2}"
+                )
     else:
         carved = base
 
