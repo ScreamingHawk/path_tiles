@@ -45,8 +45,7 @@ def create_tile_mesh(
     bezier_steps: int = 64,
     triang_engine: str = None,
 ) -> trimesh.Trimesh:
-    """Build a Path Tiles tile with curved grooves and endpoint circle cuts embedded into the surface.
-    """
+    """Build a Path Tiles tile with curved grooves and endpoint circle cuts embedded into the surface."""
     engine = triang_engine or DEFAULT_ENGINE
     if engine is None:
         raise ImportError(
